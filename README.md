@@ -10,3 +10,12 @@ to tell me the weather and time and it should use the tools provided. All this w
 This is again just for testing and not a production ready solution. It would need to handle more cases
 and have better error handling. But we'll see if I get bored one weekend I might extend this to something
 more useful.
+
+# Running
+You do need an Anthropic key
+
+Then set it to an environment variable called ANTHROPIC_API_KEY
+
+Now just run the script, here is a prompt that will typically force at least two tool call loops:
+
+```What's the weather in Paris? If it's above 20 degrees, check Tokyo's weather too. What time is it wherever you checked?```
