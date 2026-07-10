@@ -19,3 +19,9 @@ Then set it to an environment variable called ANTHROPIC_API_KEY
 Now just run the script, here is a prompt that will typically force at least two tool call loops:
 
 ```What's the weather in Paris? If it's above 20 degrees, check Tokyo's weather too. What time is it wherever you checked?```
+
+# Future Ideas
+These are all just for learning purposes since they all exist already but are thing I want to better understand:
+* Add MCP support for tools
+* Allow continuous chat rather than just single prompt execution
+* Verify the output, maybe implement some basic guardrails
