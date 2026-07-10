@@ -80,9 +80,11 @@ tools = [
 
 logging.basicConfig(level=logging.INFO)
 
-# Turn on debug just for the anthropic SDK
+# Turn on debug for the anthropic SDK
 logging.getLogger("anthropic").setLevel(logging.DEBUG)
-logger = logging.getLogger("my_thingy")
+
+# set debug for this logger too
+logger = logging.getLogger("weather_service")
 logger.setLevel(logging.DEBUG)
 
 claude_model = "claude-haiku-4-5-20251001"
@@ -92,8 +94,6 @@ user_prompt = input("How can I help you today? ")
 chat_content = [{
     "role": "user",
     "content": user_prompt
-    # "content": "What's the weather like in Paris? "
-    #            "What time is it over there?"
 }]
 
 max_turns = 5
@@ -102,7 +102,7 @@ for turn in range(max_turns):
         model=claude_model,
         max_tokens=1024,
         tools=tools,
-        system="If unit is not specified use celsius as a unit",
+        system="Weather and time service. If unit is not specified use celsius as a unit",
         messages=chat_content
     )
 
