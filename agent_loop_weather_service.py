@@ -1,11 +1,13 @@
 from zoneinfo import ZoneInfo
 from datetime import datetime
 
+import httpx
+import ssl
 import anthropic
 import random
 import logging
 
-def get_weather(location: str, unit: str) -> dict:
+def get_weather(location: str, unit: str = "celsius") -> dict:
     """Mock weather service..."""
 
     # Simulated weather conditions
@@ -31,15 +33,17 @@ def convert_c_to_f(temp_c: int) -> int:
     """converts Celcius temperature to Fahrenheit"""
     return round(temp_c * (9 / 5) + 32)
 
-
-client = anthropic.Anthropic()
-
-
 def get_time(timezone: str) -> str:
     """Takes a timezone and returns the current time in said timezone"""
     time_in_zone = datetime.now(ZoneInfo(timezone))
     return time_in_zone.strftime("%Y-%m-%d %H:%M:%S %Z")
 
+ctx = ssl.create_default_context()
+ctx.load_default_certs()
+
+client = anthropic.Anthropic(
+    http_client=httpx.Client(verify=ctx)
+)
 
 tools = [
     {
@@ -78,66 +82,71 @@ tools = [
     }
 ]
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.DEBUG,
+    filename="weather_service.log",
+    filemode="w",
+    format="%(asctime)s %(name)s %(levelname)s %(message)s"
+)
 
-# Turn on debug for the anthropic SDK
 logging.getLogger("anthropic").setLevel(logging.DEBUG)
 
-# set debug for this logger too
 logger = logging.getLogger("weather_service")
 logger.setLevel(logging.DEBUG)
 
-claude_model = "claude-haiku-4-5-20251001"
+claude_model = "claude-sonnet-5"
 
-user_prompt = input("How can I help you today? ")
+chat_content = []
 
-chat_content = [{
-    "role": "user",
-    "content": user_prompt
-}]
-
-max_turns = 5
-for turn in range(max_turns):
-    message = client.messages.create(
-        model=claude_model,
-        max_tokens=1024,
-        tools=tools,
-        system="Weather and time service. If unit is not specified use celsius as a unit",
-        messages=chat_content
-    )
-
-    logger.debug(message.content)
-    chat_content.append({"role": "assistant", "content": message.content})
-
-    if message.stop_reason == "end_turn":
-        for block in message.content:
-            if block.type == "text":
-                print(f"\n{block.text}")
+while True:
+    user_prompt = input("\nYou: ")
+    if user_prompt.lower() in ("quit", "exit"):
         break
 
-    tool_results = []
-    for block in message.content:
-        if block.type == "tool_use":
-            if block.name == "get_weather":
-                result = get_weather(**block.input)
-            elif block.name == "get_time":
-                result = get_time(**block.input)
-            else:
+    chat_content.append({"role": "user", "content": user_prompt})
+
+    max_turns = 5
+    for turn in range(max_turns):
+        message = client.messages.create(
+            model=claude_model,
+            max_tokens=1024,
+            tools=tools,
+            system="Weather and time service. If unit is not specified use celsius as a unit",
+            messages=chat_content
+        )
+
+        logger.debug(message.content)
+        chat_content.append({"role": "assistant", "content": message.content})
+
+        if message.stop_reason == "end_turn":
+            for block in message.content:
+                if block.type == "text":
+                    print(f"\n{block.text}")
+            break
+
+        tool_results = []
+        for block in message.content:
+            if block.type == "tool_use":
+                if block.name == "get_weather":
+                    result = get_weather(**block.input)
+                elif block.name == "get_time":
+                    result = get_time(**block.input)
+                else:
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": f"Unknown tool: {block.name}",
+                        "is_error": True
+                    })
+                    continue
+
                 tool_results.append({
                     "type": "tool_result",
                     "tool_use_id": block.id,
-                    "content": f"Unknown tool: {block.name}",
-                    "is_error": True
+                    "content": str(result)
                 })
-                continue
+            elif block.type == "text":
+                print(f"Text: {block.text}")
 
-            tool_results.append({
-                "type": "tool_result",
-                "tool_use_id": block.id,
-                "content": str(result)
-            })
-        elif block.type == "text":
-            print(f"Text: {block.text}")
-
-    logger.debug(tool_results)
-    chat_content.append({"role": "user", "content": tool_results})
+        logger.debug(tool_results)
+        chat_content.append({"role": "user", "content": tool_results})
