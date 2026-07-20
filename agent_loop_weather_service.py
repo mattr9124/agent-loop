@@ -2,33 +2,14 @@ import json
 from zoneinfo import ZoneInfo
 from datetime import datetime
 
+import asyncio
 import httpx
 import ssl
 import anthropic
-import random
+
 import logging
 
-def get_weather(location: str, unit: str = "celsius") -> dict:
-    """Mock weather service..."""
-
-    # Simulated weather conditions
-    conditions = random.choice(["Sunny", "Partly Cloudy", "Cloudy", "Rainy", "Thunderstorm", "Snowy"])
-    humidity = random.randint(20, 95)
-    wind_speed = random.randint(3, 45)
-
-    temp_c = random.randint(-5, 35)
-
-    temp = temp_c if unit == "celsius" else convert_c_to_f(temp_c)
-
-    return {
-        "location": location,
-        "temperature": temp,
-        "unit": unit,
-        "conditions": conditions,
-        "humidity": humidity,
-        "wind_speed_kmh": wind_speed
-    }
-
+from aiohttp import ClientSession
 
 def convert_c_to_f(temp_c: int) -> int:
     """converts Celcius temperature to Fahrenheit"""
@@ -62,69 +43,96 @@ def init_llm_client():
         http_client=httpx.Client(verify=ctx)
     )
 
+async def agent_loop(session: ClientSession, tools: dict, mcp_tools):
+    claude_model = "claude-sonnet-5"
+    chat_content = []
+
+    while True:
+        user_prompt = input("\nYou: ")
+        if user_prompt.lower() in ("quit", "exit"):
+            break
+
+        chat_content.append({"role": "user", "content": user_prompt})
+
+        max_turns = 5
+        for turn in range(max_turns):
+            message = client.messages.create(
+                model=claude_model,
+                max_tokens=1024,
+                tools=tools,
+                system=system_prompt,
+                messages=chat_content
+            )
+
+            logger.debug(message.content)
+            chat_content.append({"role": "assistant", "content": message.content})
+
+            if message.stop_reason == "end_turn":
+                for block in message.content:
+                    if block.type == "text":
+                        print(f"\n{block.text}")
+                break
+
+            tool_results = []
+            for block in message.content:
+                if block.type == "tool_use":
+                    # if block.name == "get_weather":
+                    #     result = get_weather(**block.input)
+                    if block.name == "get_time":
+                        result = get_time(**block.input)
+                    elif block.name in mcp_tools:
+                        result = await session.call_tool(block.name, block.input)
+                    else:
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": f"Unknown tool: {block.name}",
+                            "is_error": True
+                        })
+                        continue
+
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": str(result)
+                    })
+                elif block.type == "text":
+                    print(f"Text: {block.text}")
+
+            logger.debug(tool_results)
+            chat_content.append({"role": "user", "content": tool_results})
+
+
 logger = init_logging()
 client = init_llm_client()
 
 # load tools
-with open("resources/tools.json", "r") as t:
+with open("resources/tools-no-weather.json", "r") as t:
     tools = json.load(t)
 
 # system prompt
 with open("resources/system_prompt.txt", "r") as s:
     system_prompt = s.read()
 
-claude_model = "claude-sonnet-5"
-chat_content = []
+from mcp import ClientSession
+from mcp.client.streamable_http import streamable_http_client
 
-while True:
-    user_prompt = input("\nYou: ")
-    if user_prompt.lower() in ("quit", "exit"):
-        break
+async def main():
+    # TODO externalize the URL
+    url = "http://localhost:8080/mcp"
+    async with streamable_http_client(url) as (r, w, _):
+        async with ClientSession(r, w) as session:
+            await session.initialize()
+            mcpTools = await session.list_tools()
+            logger.debug(f"MCP Tools from {url}")
+            for tool in mcpTools.tools:
+                logger.debug(f"{tool.name} - {tool.description}")
+            tools.extend(
+                {"name": t.name, "description": t.description, "input_schema": t.inputSchema}
+                for t in mcpTools.tools)
+            mcp_tools = [t.name for t in mcpTools.tools]
+            logger.debug(f"MCP TOOLS FOUND: {mcp_tools}")
 
-    chat_content.append({"role": "user", "content": user_prompt})
+            await agent_loop(session, tools, mcp_tools)
 
-    max_turns = 5
-    for turn in range(max_turns):
-        message = client.messages.create(
-            model=claude_model,
-            max_tokens=1024,
-            tools=tools,
-            system=system_prompt,
-            messages=chat_content
-        )
-
-        logger.debug(message.content)
-        chat_content.append({"role": "assistant", "content": message.content})
-
-        if message.stop_reason == "end_turn":
-            for block in message.content:
-                if block.type == "text":
-                    print(f"\n{block.text}")
-            break
-
-        tool_results = []
-        for block in message.content:
-            if block.type == "tool_use":
-                if block.name == "get_weather":
-                    result = get_weather(**block.input)
-                elif block.name == "get_time":
-                    result = get_time(**block.input)
-                else:
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": f"Unknown tool: {block.name}",
-                        "is_error": True
-                    })
-                    continue
-
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": str(result)
-                })
-            elif block.type == "text":
-                print(f"Text: {block.text}")
-
-        logger.debug(tool_results)
-        chat_content.append({"role": "user", "content": tool_results})
+asyncio.run(main())

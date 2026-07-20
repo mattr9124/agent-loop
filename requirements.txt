@@ -1,1 +1,3 @@
 anthropic
+mcp
+aiohttp

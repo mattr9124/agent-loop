@@ -1,0 +1,15 @@
+[
+  {
+    "name": "get_time",
+    "description": "Gets the current time in a given location",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "timezone": {
+          "type": "string",
+          "description": "A timezone such as GMT-5 or CET, it should be in a format that python's ZoneInfo would accept, like Europe/Paris or Asia/Tokyo"
+        }
+      }
+    }
+  }
+]

@@ -22,6 +22,15 @@ Now just run the script, here is a prompt that will typically force at least two
 
 # Future Ideas
 These are all just for learning purposes since they all exist already but are thing I want to better understand:
-* Add MCP support for tools
+* ~~Add MCP support for tools~~ Added a weather MCP server (for now running locally)
 * ~~Allow continuous chat rather than just single prompt execution~~
 * ~~Verify the output, maybe implement some basic guardrails~~ (not exactly verified but added some guardrails in the system prompt, probably can go further
+
+# MCP Addition
+I added an MCP server support, for now it's hard coded but the idea is there, I may try to improve on this later.
+You need to run this server https://github.com/mattr9124/weather-mcp-server-java - I went with Java since that's 
+what I know best. There are npm variants that would probably work just fine as well. Currently I'm running it 
+locally on port 8080, so the hard coded url is http://localhost:8080/mcp. If you use a different server just change
+that. Recall this is for educational purposes only...
+
+This now has a hybrid of inline tools and MCP tools.
