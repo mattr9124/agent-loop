@@ -1,3 +1,4 @@
+import json
 from zoneinfo import ZoneInfo
 from datetime import datetime
 
@@ -38,64 +39,41 @@ def get_time(timezone: str) -> str:
     time_in_zone = datetime.now(ZoneInfo(timezone))
     return time_in_zone.strftime("%Y-%m-%d %H:%M:%S %Z")
 
-ctx = ssl.create_default_context()
-ctx.load_default_certs()
+def init_logging():
+    logging.basicConfig(
+        level=logging.DEBUG,
+        filename="weather_service.log",
+        filemode="w",
+        format="%(asctime)s %(name)s %(levelname)s %(message)s"
+    )
 
-client = anthropic.Anthropic(
-    http_client=httpx.Client(verify=ctx)
-)
+    logging.getLogger("anthropic").setLevel(logging.DEBUG)
 
-tools = [
-    {
-        "name": "get_weather",
-        "description": "Get the current weather in a given location",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "location": {
-                    "type": "string",
-                    "description": "The city and state, i.e. St. Louis, MO"
-                },
-                "unit": {
-                    "type": "string",
-                    "enum": ["celsius", "fahrenheit"],
-                    "description": "The temperature unit to use"
-                }
-            },
-            "required": ["location"]
-        }
-    },
-    {
-        "name": "get_time",
-        "description": "Gets the current time in a given location",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "timezone": {
-                    "type": "string",
-                    "description": "A timezone such as GMT-5 or CET, it should be in a format "
-                                   "that python's ZoneInfo would accept, like Europe/Paris "
-                                   "or Asia/Tokyo"
-                }
-            }
-        }
-    }
-]
+    logger = logging.getLogger("weather_service")
+    logger.setLevel(logging.DEBUG)
+    return logger
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    filename="weather_service.log",
-    filemode="w",
-    format="%(asctime)s %(name)s %(levelname)s %(message)s"
-)
+# TODO add support for other LLMs
+def init_llm_client():
+    ctx = ssl.create_default_context()
+    ctx.load_default_certs()
 
-logging.getLogger("anthropic").setLevel(logging.DEBUG)
+    return anthropic.Anthropic(
+        http_client=httpx.Client(verify=ctx)
+    )
 
-logger = logging.getLogger("weather_service")
-logger.setLevel(logging.DEBUG)
+logger = init_logging()
+client = init_llm_client()
+
+# load tools
+with open("resources/tools.json", "r") as t:
+    tools = json.load(t)
+
+# system prompt
+with open("resources/system_prompt.txt", "r") as s:
+    system_prompt = s.read()
 
 claude_model = "claude-sonnet-5"
-
 chat_content = []
 
 while True:
@@ -111,7 +89,7 @@ while True:
             model=claude_model,
             max_tokens=1024,
             tools=tools,
-            system="Weather and time service. If unit is not specified use celsius as a unit",
+            system=system_prompt,
             messages=chat_content
         )
 

@@ -1,0 +1,39 @@
+[
+  {
+    "name": "get_weather",
+    "description": "Get the current weather in a given location",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "location": {
+          "type": "string",
+          "description": "The city and state, i.e. St. Louis, MO"
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "celsius",
+            "fahrenheit"
+          ],
+          "description": "The temperature unit to use"
+        }
+      },
+      "required": [
+        "location"
+      ]
+    }
+  },
+  {
+    "name": "get_time",
+    "description": "Gets the current time in a given location",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "timezone": {
+          "type": "string",
+          "description": "A timezone such as GMT-5 or CET, it should be in a format that python's ZoneInfo would accept, like Europe/Paris or Asia/Tokyo"
+        }
+      }
+    }
+  }
+]
