@@ -23,5 +23,5 @@ Now just run the script, here is a prompt that will typically force at least two
 # Future Ideas
 These are all just for learning purposes since they all exist already but are thing I want to better understand:
 * Add MCP support for tools
-* Allow continuous chat rather than just single prompt execution
-* Verify the output, maybe implement some basic guardrails
+* ~~Allow continuous chat rather than just single prompt execution~~
+* ~~Verify the output, maybe implement some basic guardrails~~ (not exactly verified but added some guardrails in the system prompt, probably can go further
