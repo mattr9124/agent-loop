@@ -29,7 +29,7 @@ These are all just for learning purposes since they all exist already but are th
 # MCP Addition
 I added an MCP server support, MCP servers can be for now can be configured in [resources/mcp.json](resources/mcp.json).
 
-For testing I'm using this server: https://github.com/mattr9124/weather-mcp-server-java 
+For testing I'm using this server: https://github.com/mattr9124/weather-mcp-server-java -
 I went with Java since that's what I know best. There are npm variants that would probably work just as well. 
 
 Also just added stdio support, and that's over here:
