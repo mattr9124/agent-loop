@@ -27,10 +27,9 @@ These are all just for learning purposes since they all exist already but are th
 * ~~Verify the output, maybe implement some basic guardrails~~ (not exactly verified but added some guardrails in the system prompt, probably can go further
 
 # MCP Addition
-I added an MCP server support, for now it's hard coded but the idea is there, I may try to improve on this later.
-You need to run this server https://github.com/mattr9124/weather-mcp-server-java - I went with Java since that's 
-what I know best. There are npm variants that would probably work just fine as well. Currently I'm running it 
-locally on port 8080, so the hard coded url is http://localhost:8080/mcp. If you use a different server just change
-that. Recall this is for educational purposes only...
+I added an MCP server support, MCP servers can be for now can be configured in [resources/mcp.json](resources/mcp.json).
+
+For testing I'm using this server: https://github.com/mattr9124/weather-mcp-server-java 
+I went with Java since that's what I know best. There are npm variants that would probably work just as well. 
 
 This now has a hybrid of inline tools and MCP tools.

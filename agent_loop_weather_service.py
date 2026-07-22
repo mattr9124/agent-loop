@@ -1,15 +1,17 @@
 import json
-from zoneinfo import ZoneInfo
-from datetime import datetime
-
 import asyncio
 import httpx
 import ssl
 import anthropic
-
 import logging
 
 from aiohttp import ClientSession
+from mcp import ClientSession
+from mcp.client.streamable_http import streamable_http_client
+from contextlib import AsyncExitStack
+from zoneinfo import ZoneInfo
+from datetime import datetime
+
 
 def convert_c_to_f(temp_c: int) -> int:
     """converts Celcius temperature to Fahrenheit"""
@@ -43,7 +45,7 @@ def init_llm_client():
         http_client=httpx.Client(verify=ctx)
     )
 
-async def agent_loop(session: ClientSession, tools: dict, mcp_tools):
+async def agent_loop(all_sessions: dict[str, ClientSession], tools: dict):
     claude_model = "claude-sonnet-5"
     chat_content = []
 
@@ -80,8 +82,8 @@ async def agent_loop(session: ClientSession, tools: dict, mcp_tools):
                     #     result = get_weather(**block.input)
                     if block.name == "get_time":
                         result = get_time(**block.input)
-                    elif block.name in mcp_tools:
-                        result = await session.call_tool(block.name, block.input)
+                    elif block.name in all_sessions:
+                        result = await all_sessions[block.name].call_tool(block.name, block.input)
                     else:
                         tool_results.append({
                             "type": "tool_result",
@@ -106,33 +108,36 @@ async def agent_loop(session: ClientSession, tools: dict, mcp_tools):
 logger = init_logging()
 client = init_llm_client()
 
+def load_json_file(file_path: str):
+    with open(file_path, "r") as json_file:
+        return json.load(json_file)
+
 # load tools
-with open("resources/tools-no-weather.json", "r") as t:
-    tools = json.load(t)
+TOOLS = load_json_file("resources/tools-no-weather.json")
+# load MCPs
+MCP_SERVERS = load_json_file("resources/mcp.json")
 
 # system prompt
 with open("resources/system_prompt.txt", "r") as s:
     system_prompt = s.read()
 
-from mcp import ClientSession
-from mcp.client.streamable_http import streamable_http_client
-
 async def main():
-    # TODO externalize the URL
-    url = "http://localhost:8080/mcp"
-    async with streamable_http_client(url) as (r, w, _):
-        async with ClientSession(r, w) as session:
-            await session.initialize()
-            mcpTools = await session.list_tools()
-            logger.debug(f"MCP Tools from {url}")
-            for tool in mcpTools.tools:
-                logger.debug(f"{tool.name} - {tool.description}")
-            tools.extend(
-                {"name": t.name, "description": t.description, "input_schema": t.inputSchema}
-                for t in mcpTools.tools)
-            mcp_tools = [t.name for t in mcpTools.tools]
-            logger.debug(f"MCP TOOLS FOUND: {mcp_tools}")
+    async with AsyncExitStack() as stack:
+        # all_mcp_tools = []
+        tool_to_session: dict[str, ClientSession] = {}
 
-            await agent_loop(session, tools, mcp_tools)
+        for mcp_server in MCP_SERVERS:
+            r, w, _ = await stack.enter_async_context(streamable_http_client(mcp_server["url"]))
+            session = await stack.enter_async_context(ClientSession(r, w))
+            await session.initialize()
+
+            mcp_tools = await session.list_tools()
+
+            for t in mcp_tools.tools:
+                tool_to_session[t.name] = session
+                TOOLS.append({"name": t.name, "description": t.description, "input_schema": t.inputSchema})
+
+        logger.debug(f"MCP TOOLS FOUND: {list(tool_to_session.keys())}")
+        await agent_loop(tool_to_session, TOOLS)
 
 asyncio.run(main())
