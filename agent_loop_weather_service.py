@@ -47,7 +47,7 @@ def init_llm_client():
         http_client=httpx.Client(verify=ctx)
     )
 
-async def agent_loop(all_sessions: dict[str, ClientSession], tools: dict):
+async def agent_loop(mcp_tool_sessions: dict[str, ClientSession], tools: dict):
     claude_model = "claude-sonnet-5"
     chat_content = []
 
@@ -82,8 +82,8 @@ async def agent_loop(all_sessions: dict[str, ClientSession], tools: dict):
                 if block.type == "tool_use":
                     if block.name == "get_time":
                         result = get_time(**block.input)
-                    elif block.name in all_sessions:
-                        result = await all_sessions[block.name].call_tool(block.name, block.input)
+                    elif block.name in mcp_tool_sessions:
+                        result = await mcp_tool_sessions[block.name].call_tool(block.name, block.input)
                     else:
                         tool_results.append({
                             "type": "tool_result",
