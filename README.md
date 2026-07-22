@@ -32,4 +32,14 @@ I added an MCP server support, MCP servers can be for now can be configured in [
 For testing I'm using this server: https://github.com/mattr9124/weather-mcp-server-java 
 I went with Java since that's what I know best. There are npm variants that would probably work just as well. 
 
+Also just added stdio support, and that's over here:
+
+It's JAR you need to build locally and then point to in the MCP config.
+
+Run the following (you need to at least have a recent version of Java installed)
+```shell
+# builds the jar to mcp-runner/build/libs/mcp-runner-0.0.1-SNAPSHOT.jar
+./gradlew :mcp-runner:bootJar
+```
+
 This now has a hybrid of inline tools and MCP tools.
