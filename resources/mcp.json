@@ -1,6 +1,16 @@
 [
   {
+    "type": "http",
     "name": "weather",
     "url": "http://localhost:8080/mcp"
+  },
+  {
+    "type": "stdio",
+    "name": "news-api",
+    "command": "java",
+    "args": [
+      "-jar",
+      "${JAR_PATH}/mcp-runner-0.0.1-SNAPSHOT.jar"
+    ]
   }
 ]

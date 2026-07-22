@@ -1,12 +1,14 @@
 import json
 import asyncio
+import os.path
+
 import httpx
 import ssl
 import anthropic
 import logging
 
 from aiohttp import ClientSession
-from mcp import ClientSession
+from mcp import ClientSession, stdio_client, StdioServerParameters
 from mcp.client.streamable_http import streamable_http_client
 from contextlib import AsyncExitStack
 from zoneinfo import ZoneInfo
@@ -127,7 +129,17 @@ async def main():
         tool_to_session: dict[str, ClientSession] = {}
 
         for mcp_server in MCP_SERVERS:
-            r, w, _ = await stack.enter_async_context(streamable_http_client(mcp_server["url"]))
+            if mcp_server["type"] == "http":
+                logger.debug(f"Adding http tool {mcp_server["name"]}")
+                r, w, _ = await stack.enter_async_context(streamable_http_client(mcp_server["url"]))
+            elif mcp_server["type"] == "stdio":
+                logger.debug(f"Adding stdio tool {mcp_server["name"]}")
+                server_args = [os.path.expandvars(a) for a in mcp_server["args"]]
+                params = StdioServerParameters(command=mcp_server["command"], args = server_args)
+                r, w = await stack.enter_async_context(stdio_client(params))
+            else:
+                continue
+
             session = await stack.enter_async_context(ClientSession(r, w))
             await session.initialize()
 
