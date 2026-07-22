@@ -80,8 +80,6 @@ async def agent_loop(all_sessions: dict[str, ClientSession], tools: dict):
             tool_results = []
             for block in message.content:
                 if block.type == "tool_use":
-                    # if block.name == "get_weather":
-                    #     result = get_weather(**block.input)
                     if block.name == "get_time":
                         result = get_time(**block.input)
                     elif block.name in all_sessions:
