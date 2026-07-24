@@ -80,8 +80,8 @@ async def agent_loop(mcp_tool_sessions: dict[str, ClientSession], tools: dict):
             tool_results = []
             for block in message.content:
                 if block.type == "tool_use":
-                    if block.name == "get_time":
-                        result = get_time(**block.input)
+                    if block.name in TOOL_REGISTRY:
+                        result = TOOL_REGISTRY[block.name](**block.input)
                     elif block.name in mcp_tool_sessions:
                         result = await mcp_tool_sessions[block.name].call_tool(block.name, block.input)
                     else:
@@ -114,6 +114,13 @@ def load_json_file(file_path: str):
 
 # load tools
 TOOLS = load_json_file("resources/tools-no-weather.json")
+
+# Tool registry for local functions
+TOOL_REGISTRY = {
+    "get_time": get_time
+}
+
+
 # load MCPs
 MCP_SERVERS = load_json_file("resources/mcp.json")
 
@@ -127,26 +134,28 @@ async def main():
         tool_to_session: dict[str, ClientSession] = {}
 
         for mcp_server in MCP_SERVERS:
-            if mcp_server["type"] == "http":
-                logger.debug(f"Adding http tool {mcp_server["name"]}")
-                r, w, _ = await stack.enter_async_context(streamable_http_client(mcp_server["url"]))
-            elif mcp_server["type"] == "stdio":
-                logger.debug(f"Adding stdio tool {mcp_server["name"]}")
-                server_args = [os.path.expandvars(a) for a in mcp_server["args"]]
-                params = StdioServerParameters(command=mcp_server["command"], args = server_args)
-                r, w = await stack.enter_async_context(stdio_client(params))
-            else:
-                continue
+            try:
+                if mcp_server["type"] == "http":
+                    logger.debug(f"Adding http tool {mcp_server["name"]}")
+                    r, w, _ = await stack.enter_async_context(streamable_http_client(mcp_server["url"]))
+                elif mcp_server["type"] == "stdio":
+                    logger.debug(f"Adding stdio tool {mcp_server["name"]}")
+                    server_args = [os.path.expandvars(a) for a in mcp_server["args"]]
+                    params = StdioServerParameters(command=mcp_server["command"], args = server_args)
+                    r, w = await stack.enter_async_context(stdio_client(params))
+                else:
+                    continue
 
-            session = await stack.enter_async_context(ClientSession(r, w))
-            await session.initialize()
+                session = await stack.enter_async_context(ClientSession(r, w))
+                await session.initialize()
 
-            mcp_tools = await session.list_tools()
+                mcp_tools = await session.list_tools()
 
-            for t in mcp_tools.tools:
-                tool_to_session[t.name] = session
-                TOOLS.append({"name": t.name, "description": t.description, "input_schema": t.inputSchema})
-
+                for t in mcp_tools.tools:
+                    tool_to_session[t.name] = session
+                    TOOLS.append({"name": t.name, "description": t.description, "input_schema": t.inputSchema})
+            except BaseException as e:
+                logger.warning(f"Unable to connect to MCP server {mcp_server["name"]}: {e}")
         logger.debug(f"MCP TOOLS FOUND: {list(tool_to_session.keys())}")
         await agent_loop(tool_to_session, TOOLS)
 
